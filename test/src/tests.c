@@ -319,6 +319,19 @@ void test_eh_overwrite_function_call_(void)
     }
 }
 
+
+void test_eh_inject_code_invalid_args_(void)
+{
+    assert(eh_inject_code(0, 0, 0, 0) == 0);
+    // TODO: Implement.
+}
+
+void test_eh_inject_code_(void)
+{
+    // TODO: Implement.
+}
+
+
 int main(int argc, char* argv[])
 {
     (void)argc;
@@ -331,5 +344,9 @@ int main(int argc, char* argv[])
 
     test_eh_overwrite_function_call_();
     test_eh_overwrite_function_call_invalid_args_();
+
+    test_eh_inject_code_invalid_args_();
+    test_eh_inject_code_();
+
     return 0;
 }

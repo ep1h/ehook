@@ -86,6 +86,37 @@ void eh_unset_vmt_hook(void* vmt_address, unsigned int index,
 void* eh_overwrite_function_call(void* src_address, void* dst_address,
                                  char is_relative);
 
+/**
+ * @brief Injects a bytecode \p buf in \p address address.
+ *
+ * @param[in] address   Address where to inject a the bytecode.
+ * @param[in] buf       Bytecode to be injected.
+ * @param[in] buf_size  Number of bytes to be injected.
+ * @param[in] jmp_size  Number of bytes to be overwritten to perform transition
+ *                      to injected bytecode. The overwriteen bytes will be
+ *                      moved and executed after injected bytes.
+ *                      Minimum values are: 5 bytes for x86 and 12 bytes for x64
+ *                      architectures.
+ *
+ * @return Address of a buffer with injected bytes and overwritten bytes.
+ */
+void* eh_inject_code(void* address, void* buf, unsigned int buf_size,
+                     unsigned int jmp_size);
+
+/**
+ * @brief Removes a previously injected bytecode.
+ *
+ * @param[in] address        Address where a bytecode was injected.
+ * @param[in] injected_bytes Address of injected bytes (returned by
+ *                           \p eh_inject_code function).
+ * @param[in] buf_size       Number of injected bytes (the value previously
+ *                           passed in \p eh_inejct_code function).
+ * @param[in] jmp_size       Number of overwritten bytes (the value previously
+ *                           passed in \p eh_inejct_code function).
+ */
+void eh_uninject_code(void* address, void* injected_bytes,
+                      unsigned int buf_size, unsigned int jmp_size);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

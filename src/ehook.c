@@ -134,6 +134,14 @@ static void* set_vmt_hook_(void* vmt_address, unsigned int index,
 static void* overwrite_function_call_(void* src_address, void* dst_address,
                                       char is_relative);
 
+// TODO: Write description.
+static void* eh_inject_code_(void* address, void* buf, unsigned int buf_size,
+                             unsigned int jmp_size);
+
+// TODO: Write description.
+static void eh_uninject_code_(void* address, void* injected_bytes,
+                              unsigned int buf_size, unsigned int jmp_size);
+
 static void* allocate_memory_(size_t size)
 {
 #ifdef _WIN32
@@ -350,6 +358,76 @@ static void* overwrite_function_call_(void* src_address, void* dst_address,
     return result;
 }
 
+static void* eh_inject_code_(void* address, void* buf, unsigned int buf_size,
+                             unsigned int jmp_size)
+{
+#if defined(_M_IX86) || defined(__i386__)
+    if (!address || !buf || buf_size == 0 || jmp_size < MIN_HOOK_SIZE)
+    {
+        return NULL;
+    }
+    uint8_t* inejcted_bytes =
+        (uint8_t*)allocate_memory_(buf_size + jmp_size + ASM_JMP_SIZE);
+    if (!inejcted_bytes)
+    {
+        return NULL;
+    }
+    /* Write injected bytes in buf */
+    memcpy(inejcted_bytes, buf, buf_size);
+    MemProt cur_prot = 0;
+    if (!protect_memory_(address, jmp_size, get_execute_readwrite_prot_(),
+                         &cur_prot))
+    {
+        free_memory_(inejcted_bytes, buf_size + ASM_JMP_SIZE);
+        return NULL;
+    }
+    /* Write overwritten  bytes in buf */
+    memcpy(inejcted_bytes + buf_size, address, jmp_size);
+
+    /* Write jmp to original function continuation in buf */
+    inejcted_bytes[buf_size + jmp_size] = ASM_JMP;
+    *(unsigned int*)(inejcted_bytes + buf_size + jmp_size + 1) =
+        (uint8_t*)address + jmp_size - (inejcted_bytes + buf_size + jmp_size) -
+        ASM_JMP_SIZE;
+
+    memset(address, ASM_NOP,
+           jmp_size); // TODO: Only if jmp_size > MIN_HOOK_SIZE
+    *(uint8_t*)address = ASM_JMP;
+
+    *(unsigned int*)((uint8_t*)address + 1) =
+        (uint8_t*)inejcted_bytes - (uint8_t*)address - ASM_JMP_SIZE;
+
+    MemProt tmp_prot = 0;
+    protect_memory_(address, jmp_size, cur_prot, &tmp_prot);
+    return inejcted_bytes;
+#elif defined(_M_X64) || defined(__x86_64__)
+    // TODO: Implement later.
+#endif /* defined(_M_IX86) || defined(__i386__) */
+}
+
+static void eh_uninject_code_(void* address, void* injected_bytes,
+                              unsigned int buf_size, unsigned int jmp_size)
+{
+    if (!address || !injected_bytes || buf_size == 0 ||
+        jmp_size < MIN_HOOK_SIZE)
+    {
+        return;
+    }
+
+    MemProt old_prot = 0;
+    if (!protect_memory_(address, jmp_size, get_execute_readwrite_prot_(),
+                         &old_prot))
+    {
+        return;
+    }
+
+    memcpy(address, injected_bytes + buf_size, jmp_size);
+    MemProt tmp_prot;
+    protect_memory_(address, jmp_size, old_prot, &tmp_prot);
+    free_memory_(injected_bytes, buf_size + jmp_size + ASM_JMP_SIZE);
+}
+
+
 void* eh_set_trampoline_hook(void* function_address, void* hook_address,
                              unsigned int size, EhTrampolineType type)
 {
@@ -397,4 +475,16 @@ void* eh_overwrite_function_call(void* src_address, void* dst_address,
                                  char is_relative)
 {
     return overwrite_function_call_(src_address, dst_address, is_relative);
+}
+
+void* eh_inject_code(void* address, void* buf, unsigned int buf_size,
+                     unsigned int jmp_size)
+{
+    return eh_inject_code_(address, buf, buf_size, jmp_size);
+}
+
+void eh_uninject_code(void* address, void* injected_bytes,
+                      unsigned int buf_size, unsigned int jmp_size)
+{
+    eh_uninject_code_(address, injected_bytes, buf_size, jmp_size);
 }
