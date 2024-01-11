@@ -322,15 +322,167 @@ void test_eh_overwrite_function_call_(void)
 
 void test_eh_inject_code_invalid_args_(void)
 {
-    assert(eh_inject_code(0, 0, 0, 0) == 0);
-    // TODO: Implement.
+    uint8_t code_bytes_orig[] = {
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A,
+        0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15,
+        0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20};
+
+    uint8_t code_bytes_emul[sizeof(code_bytes_orig)];
+    for (size_t i = 0; i < sizeof(code_bytes_orig); i++)
+    {
+        code_bytes_emul[i] = code_bytes_orig[i];
+    }
+
+    uint8_t injected_bytes[] = {0xAB, 0xBC, 0xCD, 0xDE, 0xEF, 0x90, 0xF5};
+    unsigned int jmp_size = 7;
+    assert(eh_inject_code(0, injected_bytes, sizeof(injected_bytes),
+                          jmp_size) == NULL);
+    assert(eh_inject_code(code_bytes_emul, 0, sizeof(injected_bytes),
+                          jmp_size) == NULL);
+    assert(eh_inject_code(code_bytes_emul, injected_bytes, 0, jmp_size) ==
+           NULL);
+#if defined(_M_IX86) || defined(__i386__)
+    assert(eh_inject_code(code_bytes_emul, injected_bytes,
+                          sizeof(injected_bytes), 4) == NULL);
+#elif defined(_M_X64) || defined(__x86_64__)
+    assert(eh_inject_code(code_bytes_emul, injected_bytes,
+                          sizeof(injected_bytes), 11) == NULL);
+#endif
+    eh_uninject_code(0, code_bytes_emul, sizeof(injected_bytes), jmp_size);
+    eh_uninject_code(code_bytes_emul, 0, sizeof(injected_bytes), jmp_size);
+    eh_uninject_code(code_bytes_emul, code_bytes_emul, 0, jmp_size);
+#if defined(_M_IX86) || defined(__i386__)
+    eh_uninject_code(code_bytes_emul, code_bytes_emul, sizeof(injected_bytes),
+                     4);
+#elif defined(_M_X64) || defined(__x86_64__)
+    eh_uninject_code(code_bytes_emul, code_bytes_emul, sizeof(injected_bytes),
+                     11);
+#endif
 }
 
+#if defined(_M_IX86) || defined(__i386__)
 void test_eh_inject_code_(void)
 {
-    // TODO: Implement.
-}
+    uint8_t code_bytes_orig[] = {
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A,
+        0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15,
+        0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20};
 
+    uint8_t code_bytes_emul[sizeof(code_bytes_orig)];
+    for (size_t i = 0; i < sizeof(code_bytes_orig); i++)
+    {
+        code_bytes_emul[i] = code_bytes_orig[i];
+    }
+
+    uint8_t injected_bytes[] = {0xAB, 0xBC, 0xCD, 0xDE, 0xEF, 0x90, 0xF5};
+    unsigned int jmp_size = 7;
+    uint8_t* injected_buf = eh_inject_code(code_bytes_emul, injected_bytes,
+                                           sizeof(injected_bytes), jmp_size);
+    /* Test bytes */
+    assert(injected_buf != 0);
+    assert(code_bytes_emul[0] == 0xE9); /* Jmp */
+    void* jmp_rel_addr =
+        (void*)((uint8_t*)injected_buf - (uint8_t*)code_bytes_emul - 5);
+    assert(*(void**)((uint8_t*)code_bytes_emul + 1) == jmp_rel_addr); /* Addr */
+    for (size_t i = 5; i < jmp_size; i++)
+    {
+        assert(code_bytes_emul[i] == 0x90); /* Nops */
+    }
+
+    /* Test injected bytes */
+    for (size_t i = 0; i < sizeof(injected_bytes) + jmp_size; i++)
+    {
+        if (i < sizeof(injected_bytes))
+        {
+            /* Injected bytes */
+            assert(injected_buf[i] == injected_bytes[i]);
+        }
+        else
+        {
+            /* Original bytes */
+            assert(injected_buf[i] ==
+                   ((uint8_t*)code_bytes_orig)[i - sizeof(injected_bytes)]);
+        }
+    }
+    /* Jmp to orig place */
+    assert(injected_buf[sizeof(injected_bytes) + jmp_size] == 0xE9);
+    jmp_rel_addr =
+        (uint8_t*)(code_bytes_emul + jmp_size -
+                   (injected_buf + sizeof(injected_bytes) + jmp_size) - 5);
+    assert(
+        *(uint32_t**)(&injected_buf[sizeof(injected_bytes) + jmp_size + 1]) ==
+        jmp_rel_addr);
+
+    eh_uninject_code(code_bytes_emul, injected_buf, sizeof(injected_bytes),
+                     jmp_size);
+    for (size_t i = 0; i < sizeof(code_bytes_emul); i++)
+    {
+        assert(code_bytes_emul[i] == code_bytes_orig[i]);
+    }
+}
+#elif defined(_M_X64) || defined(__x86_64__)
+void test_eh_inject_code_(void)
+{
+    uint8_t code_bytes_orig[] = {
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A,
+        0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15,
+        0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20};
+
+    uint8_t code_bytes_emul[sizeof(code_bytes_orig)];
+    for (size_t i = 0; i < sizeof(code_bytes_orig); i++)
+    {
+        code_bytes_emul[i] = code_bytes_orig[i];
+    }
+
+    uint8_t injected_bytes[] = {0xAB, 0xBC, 0xCD, 0xDE, 0xEF, 0x90, 0xF5};
+    unsigned int jmp_size = 17;
+    uint8_t* injected_buf = eh_inject_code(code_bytes_emul, injected_bytes,
+                                           sizeof(injected_bytes), jmp_size);
+    /* Test bytes */
+    assert(injected_buf != 0);
+    assert(*(uint16_t*)code_bytes_emul == 0xB848); /* MOV RAX */
+    assert(*(uint64_t**)((uint8_t*)code_bytes_emul + 2) ==
+           (uint64_t*)injected_buf);                         /* Addr */
+    assert(*(uint16_t*)(code_bytes_emul + 2 + 8) == 0xE0FF); /*JMP RAX */
+
+    for (size_t i = 12; i < jmp_size; i++)
+    {
+        assert(code_bytes_emul[i] == 0x90); /* Nops */
+    }
+
+    /* Test injected bytes */
+    for (size_t i = 0; i < sizeof(injected_bytes) + jmp_size; i++)
+    {
+        if (i < sizeof(injected_bytes))
+        {
+            /* Injected bytes */
+            assert(injected_buf[i] == injected_bytes[i]);
+        }
+        else
+        {
+            /* Original bytes */
+            assert(injected_buf[i] ==
+                   ((uint8_t*)code_bytes_orig)[i - sizeof(injected_bytes)]);
+        }
+    }
+    /* Jmp to orig place */
+    assert(*(uint16_t*)(injected_buf + sizeof(injected_bytes) + jmp_size) ==
+           0xB848); /* MOV RAX */
+    assert(*(void**)(injected_buf + sizeof(injected_bytes) + jmp_size + 2) ==
+           code_bytes_emul + jmp_size); /* Addr */
+    assert(*(uint16_t*)(injected_buf + sizeof(injected_bytes) + jmp_size + 2 +
+                        8) == 0xE0FF); /*JMP RAX */
+
+    eh_uninject_code(code_bytes_emul, injected_buf, sizeof(injected_bytes),
+                     jmp_size);
+    for (size_t i = 0; i < sizeof(code_bytes_emul); i++)
+    {
+        assert(code_bytes_emul[i] == code_bytes_orig[i]);
+    }
+}
+#else
+#error "Unknown compiler"
+#endif /* _MSC_VER */
 
 int main(int argc, char* argv[])
 {
