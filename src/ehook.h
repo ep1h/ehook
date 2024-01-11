@@ -117,6 +117,9 @@ void* eh_inject_code(void* address, void* buf, unsigned int buf_size,
 void eh_uninject_code(void* address, void* injected_bytes,
                       unsigned int buf_size, unsigned int jmp_size);
 
+// TODO: Write description.
+int eh_patch_bytes(void* address, const void* buf, unsigned int size);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

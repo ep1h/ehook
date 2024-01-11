@@ -142,6 +142,9 @@ static void* eh_inject_code_(void* address, void* buf, unsigned int buf_size,
 static void eh_uninject_code_(void* address, void* injected_bytes,
                               unsigned int buf_size, unsigned int jmp_size);
 
+// TODO: Write description.
+static int eh_patch_bytes_(void* address, const void* buf, unsigned int size);
+
 static void* allocate_memory_(size_t size)
 {
 #ifdef _WIN32
@@ -432,8 +435,7 @@ static void* eh_inject_code_(void* address, void* buf, unsigned int buf_size,
     memset(address, ASM_NOP,
            jmp_size); // TODO: Only if jmp_size > MIN_HOOK_SIZE
     *(uint16_t*)(address) = ASM_MOV_RAX_ADDR;
-    *(uint64_t**)(((uint8_t*)address) + 2) =
-        (uint64_t*)(inejcted_bytes);
+    *(uint64_t**)(((uint8_t*)address) + 2) = (uint64_t*)(inejcted_bytes);
     *(uint16_t*)(((uint8_t*)address) + 2 + 8) = ASM_JMP_RAX;
 
     MemProt tmp_prot = 0;
@@ -464,6 +466,19 @@ static void eh_uninject_code_(void* address, void* injected_bytes,
     free_memory_(injected_bytes, buf_size + jmp_size + ASM_JMP_SIZE);
 }
 
+static int eh_patch_bytes_(void* address, const void* buf, unsigned int size)
+{
+    MemProt old_prot = 0;
+    if (!protect_memory_(address, size, get_execute_readwrite_prot_(),
+                         &old_prot))
+    {
+        return 0;
+    }
+    memcpy(address, buf, size);
+    MemProt tmp_prot;
+    protect_memory_(address, size, old_prot, &tmp_prot);
+    return 1;
+}
 
 void* eh_set_trampoline_hook(void* function_address, void* hook_address,
                              unsigned int size, EhTrampolineType type)
@@ -524,4 +539,9 @@ void eh_uninject_code(void* address, void* injected_bytes,
                       unsigned int buf_size, unsigned int jmp_size)
 {
     eh_uninject_code_(address, injected_bytes, buf_size, jmp_size);
+}
+
+int eh_patch_bytes(void* address, const void* buf, unsigned int size)
+{
+    return eh_patch_bytes_(address, buf, size);
 }
