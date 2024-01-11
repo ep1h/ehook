@@ -401,7 +401,44 @@ static void* eh_inject_code_(void* address, void* buf, unsigned int buf_size,
     protect_memory_(address, jmp_size, cur_prot, &tmp_prot);
     return inejcted_bytes;
 #elif defined(_M_X64) || defined(__x86_64__)
-    // TODO: Implement later.
+    if (!address || !buf || buf_size == 0 || jmp_size < MIN_HOOK_SIZE)
+    {
+        return NULL;
+    }
+    uint8_t* inejcted_bytes =
+        (uint8_t*)allocate_memory_(buf_size + jmp_size + ASM_JMP_SIZE);
+    if (!inejcted_bytes)
+    {
+        return NULL;
+    }
+    /* Write injected bytes in buf */
+    memcpy(inejcted_bytes, buf, buf_size);
+    MemProt cur_prot = 0;
+    if (!protect_memory_(address, jmp_size, get_execute_readwrite_prot_(),
+                         &cur_prot))
+    {
+        free_memory_(inejcted_bytes, buf_size + ASM_JMP_SIZE);
+        return NULL;
+    }
+    /* Write overwritten  bytes in buf */
+    memcpy(inejcted_bytes + buf_size, address, jmp_size);
+
+    /* Write jmp to original bytes continuation in buf */
+    *(uint16_t*)(&inejcted_bytes[buf_size + jmp_size]) = ASM_MOV_RAX_ADDR;
+    *(uint64_t**)(&inejcted_bytes[buf_size + jmp_size + 2]) =
+        (uint64_t*)((uint8_t*)address + jmp_size);
+    *(uint16_t*)(&inejcted_bytes[buf_size + jmp_size + 2 + 8]) = ASM_JMP_RAX;
+
+    memset(address, ASM_NOP,
+           jmp_size); // TODO: Only if jmp_size > MIN_HOOK_SIZE
+    *(uint16_t*)(address) = ASM_MOV_RAX_ADDR;
+    *(uint64_t**)(((uint8_t*)address) + 2) =
+        (uint64_t*)(inejcted_bytes);
+    *(uint16_t*)(((uint8_t*)address) + 2 + 8) = ASM_JMP_RAX;
+
+    MemProt tmp_prot = 0;
+    protect_memory_(address, jmp_size, cur_prot, &tmp_prot);
+    return inejcted_bytes;
 #endif /* defined(_M_IX86) || defined(__i386__) */
 }
 
