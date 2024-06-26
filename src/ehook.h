@@ -93,7 +93,7 @@ void* eh_overwrite_function_call(void* src_address, void* dst_address,
  * @param[in] buf       Bytecode to be injected.
  * @param[in] buf_size  Number of bytes to be injected.
  * @param[in] jmp_size  Number of bytes to be overwritten to perform transition
- *                      to injected bytecode. The overwriteen bytes will be
+ *                      to injected bytecode. The overwritten bytes will be
  *                      moved and executed after injected bytes.
  *                      Minimum values are: 5 bytes for x86 and 12 bytes for x64
  *                      architectures.
@@ -110,14 +110,22 @@ void* eh_inject_code(void* address, void* buf, unsigned int buf_size,
  * @param[in] injected_bytes Address of injected bytes (returned by
  *                           \p eh_inject_code function).
  * @param[in] buf_size       Number of injected bytes (the value previously
- *                           passed in \p eh_inejct_code function).
+ *                           passed in \p eh_inject_code function).
  * @param[in] jmp_size       Number of overwritten bytes (the value previously
- *                           passed in \p eh_inejct_code function).
+ *                           passed in \p eh_inject_code function).
  */
 void eh_uninject_code(void* address, void* injected_bytes,
                       unsigned int buf_size, unsigned int jmp_size);
 
-// TODO: Write description.
+/**
+ * @brief Patches bytes at \p address with contents of \p buf.
+ *
+ * @param[in] address Address to patch.
+ * @param[in] buf     Buffer with replacement bytes.
+ * @param[in] size    Number of bytes to patch.
+ *
+ * @return 1 on success, 0 on failure.
+ */
 int eh_patch_bytes(void* address, const void* buf, unsigned int size);
 
 #ifdef __cplusplus
@@ -125,3 +133,4 @@ int eh_patch_bytes(void* address, const void* buf, unsigned int size);
 #endif /* __cplusplus */
 
 #endif /* EHOOK_H_ */
+

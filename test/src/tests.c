@@ -1,33 +1,11 @@
-
-#include "../../src/ehook.h"
+#include "ehook.h"
+#include <stddef.h>
 #include <stdint.h>
 #ifdef __cplusplus
 #include <cassert>
 #else
 #include <assert.h>
 #endif /* __cplusplus */
-
-#if defined(_MSC_VER)
-#define CC_CDECL        __cdecl
-#define CC_STDCALL      __stdcall
-#define CC_FASTCALL     __fastcall
-#define CC_THISCALL     __fastcall
-#define NOINLINE        __declspec(noinline)
-#define NAKED           __declspec(naked)
-#define ASM_INLINE(...) __asm { __VA_ARGS__ }
-#elif defined(__GNUC__) || defined(__clang__)
-#define CC_CDECL        __attribute__((cdecl))
-#define CC_STDCALL      __attribute__((stdcall))
-#define CC_FASTCALL     __attribute__((fastcall))
-#define CC_THISCALL     __attribute__((fastcall))
-#define NOINLINE        __attribute__((noinline))
-#define NAKED           __attribute__((naked))
-#define Q_(...)         #__VA_ARGS__
-#define QUOTE(...)      Q_(__VA_ARGS__)
-#define ASM_INLINE(...) asm(QUOTE(__VA_ARGS__));
-#else
-#error "Unknown compiler"
-#endif /* _MSC_VER */
 
 #if defined(_M_IX86) || defined(__i386__)
 #define MIN_HOOK_SIZE 5
@@ -247,7 +225,7 @@ static void test_eh_set_vmt_hook_(void)
     assert(vmt_emul[4] == ADDR32(0xEEEEEEEE));
     assert(vmt_emul[5] == ADDR32(0xFFFFFFFF));
 }
-void test_eh_overwrite_function_call_invalid_args_(void)
+static void test_eh_overwrite_function_call_invalid_args_(void)
 {
     void* code_bytes_emul = ADDR32(0x12345678);
     void* code_bytes_ptr = (void*)&code_bytes_emul;
@@ -261,7 +239,7 @@ void test_eh_overwrite_function_call_invalid_args_(void)
     assert(code_bytes_emul == ADDR32(0x12345678));
 }
 
-void test_eh_overwrite_function_call_(void)
+static void test_eh_overwrite_function_call_(void)
 {
     uint8_t code_bytes_emul[] = {
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A,
@@ -320,7 +298,7 @@ void test_eh_overwrite_function_call_(void)
 }
 
 
-void test_eh_inject_code_invalid_args_(void)
+static void test_eh_inject_code_invalid_args_(void)
 {
     uint8_t code_bytes_orig[] = {
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A,
@@ -361,7 +339,7 @@ void test_eh_inject_code_invalid_args_(void)
 }
 
 #if defined(_M_IX86) || defined(__i386__)
-void test_eh_inject_code_(void)
+static void test_eh_inject_code_(void)
 {
     uint8_t code_bytes_orig[] = {
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A,
@@ -421,7 +399,7 @@ void test_eh_inject_code_(void)
     }
 }
 #elif defined(_M_X64) || defined(__x86_64__)
-void test_eh_inject_code_(void)
+static void test_eh_inject_code_(void)
 {
     uint8_t code_bytes_orig[] = {
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A,
@@ -481,8 +459,42 @@ void test_eh_inject_code_(void)
     }
 }
 #else
-#error "Unknown compiler"
-#endif /* _MSC_VER */
+#error Unsupported architecture
+#endif /* arch */
+
+static void test_eh_patch_bytes_(void)
+{
+    uint8_t buf[] = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77};
+    uint8_t orig[sizeof(buf)];
+    for (size_t i = 0; i < sizeof(buf); i++)
+    {
+        orig[i] = buf[i];
+    }
+
+    /* Invalid args */
+    assert(eh_patch_bytes(NULL, buf, sizeof(buf)) == 0);
+    assert(eh_patch_bytes(buf, NULL, sizeof(buf)) == 0);
+    assert(eh_patch_bytes(buf, buf, 0) == 0);
+
+    /* Patch and verify */
+    uint8_t patch[] = {0xAA, 0xBB, 0xCC, 0xDD};
+    assert(eh_patch_bytes(buf, patch, sizeof(patch)) == 1);
+    for (size_t i = 0; i < sizeof(patch); i++)
+    {
+        assert(buf[i] == patch[i]);
+    }
+    for (size_t i = sizeof(patch); i < sizeof(buf); i++)
+    {
+        assert(buf[i] == orig[i]);
+    }
+
+    /* Restore */
+    assert(eh_patch_bytes(buf, orig, sizeof(orig)) == 1);
+    for (size_t i = 0; i < sizeof(buf); i++)
+    {
+        assert(buf[i] == orig[i]);
+    }
+}
 
 int main(int argc, char* argv[])
 {
@@ -500,5 +512,8 @@ int main(int argc, char* argv[])
     test_eh_inject_code_invalid_args_();
     test_eh_inject_code_();
 
+    test_eh_patch_bytes_();
+
     return 0;
 }
+
