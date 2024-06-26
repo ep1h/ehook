@@ -545,3 +545,4 @@ int eh_patch_bytes(void* address, const void* buf, unsigned int size)
 {
     return eh_patch_bytes_(address, buf, size);
 }
+

@@ -125,3 +125,4 @@ int eh_patch_bytes(void* address, const void* buf, unsigned int size);
 #endif /* __cplusplus */
 
 #endif /* EHOOK_H_ */
+

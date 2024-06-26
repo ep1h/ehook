@@ -1,4 +1,3 @@
-
 #include "../../src/ehook.h"
 #include <stdint.h>
 #ifdef __cplusplus
@@ -502,3 +501,4 @@ int main(int argc, char* argv[])
 
     return 0;
 }
+
